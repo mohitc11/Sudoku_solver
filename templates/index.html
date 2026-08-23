@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Sudoku Solver</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap"
+            rel="stylesheet"
+    />
+    <style>
+        :root {
+          --paper: #eef1f0;
+          --surface: #ffffff;
+          --ink: #1f2e4a;
+          --ink-soft: #5b6a86;
+          --grid-line: #c7cedb;
+          --grid-line-strong: #1f2e4a;
+          --accent-given: #1f2e4a;
+          --accent-solved: #b9770e;
+          --accent-error: #b3261e;
+          --focus: #2f6fed;
+          --radius: 10px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: var(--paper);
+          background-image:
+            linear-gradient(var(--grid-line) 1px, transparent 1px),
+            linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+          background-size: 28px 28px;
+          background-attachment: fixed;
+          color: var(--ink);
+          font-family: "IBM Plex Sans", system-ui, sans-serif;
+          min-height: 100vh;
+        }
+
+        a { color: inherit; }
+
+        :focus-visible {
+          outline: 2px solid var(--focus);
+          outline-offset: 3px;
+        }
+
+        .page {
+          max-width: 640px;
+          margin: 0 auto;
+          padding: 56px 20px 80px;
+        }
+
+        .eyebrow {
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 12px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--ink-soft);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .eyebrow::before {
+          content: "";
+          width: 9px;
+          height: 9px;
+          background: var(--accent-solved);
+          display: inline-block;
+          border-radius: 1px;
+          transform: rotate(45deg);
+        }
+
+        h1 {
+          font-family: "Space Grotesk", sans-serif;
+          font-weight: 700;
+          font-size: clamp(32px, 6vw, 44px);
+          line-height: 1.05;
+          margin: 0 0 12px;
+          letter-spacing: -0.01em;
+        }
+
+        .subtitle {
+          color: var(--ink-soft);
+          font-size: 16px;
+          line-height: 1.55;
+          margin: 0 0 40px;
+          max-width: 46ch;
+        }
+
+        .card {
+          background: var(--surface);
+          border: 1px solid var(--grid-line);
+          border-radius: var(--radius);
+          box-shadow: 0 1px 0 rgba(31, 46, 74, 0.04);
+          padding: 28px;
+        }
+
+        .dropzone {
+          border: 1.5px dashed var(--grid-line-strong);
+          border-radius: 8px;
+          background-image:
+            linear-gradient(var(--grid-line) 1px, transparent 1px),
+            linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+          background-size: 14px 14px;
+          background-color: #fbfcfb;
+          padding: 32px 20px;
+          text-align: center;
+          cursor: pointer;
+          transition: border-color 0.15s ease, background-color 0.15s ease;
+          position: relative;
+        }
+
+        .dropzone:hover,
+        .dropzone.dragover {
+          border-color: var(--accent-solved);
+          background-color: #fdf7ee;
+        }
+
+        .dropzone input[type="file"] {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          cursor: pointer;
+        }
+
+        .dropzone-icon {
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 13px;
+          color: var(--ink-soft);
+          margin-bottom: 10px;
+          letter-spacing: 0.04em;
+        }
+
+        .dropzone-label {
+          font-family: "Space Grotesk", sans-serif;
+          font-weight: 600;
+          font-size: 17px;
+          margin-bottom: 4px;
+        }
+
+        .dropzone-hint {
+          font-size: 13px;
+          color: var(--ink-soft);
+        }
+
+        .preview-wrap {
+          display: none;
+          align-items: center;
+          gap: 14px;
+          margin-top: 18px;
+          padding: 12px 14px;
+          border: 1px solid var(--grid-line);
+          border-radius: 8px;
+          background: #fbfcfb;
+        }
+
+        .preview-wrap.visible { display: flex; }
+
+        .preview-thumb {
+          width: 56px;
+          height: 56px;
+          object-fit: cover;
+          border-radius: 6px;
+          border: 1px solid var(--grid-line);
+          flex-shrink: 0;
+        }
+
+        .preview-meta {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .preview-name {
+          font-size: 14px;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .preview-remove {
+          background: none;
+          border: none;
+          color: var(--ink-soft);
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 12px;
+          cursor: pointer;
+          text-decoration: underline;
+          padding: 4px;
+        }
+
+        .preview-remove:hover { color: var(--accent-error); }
+
+        button.solve-btn {
+          width: 100%;
+          margin-top: 20px;
+          padding: 14px 18px;
+          background: var(--ink);
+          color: var(--paper);
+          border: none;
+          border-radius: 8px;
+          font-family: "Space Grotesk", sans-serif;
+          font-weight: 600;
+          font-size: 15px;
+          letter-spacing: 0.01em;
+          cursor: pointer;
+          transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
+        }
+
+        button.solve-btn:hover:not(:disabled) { background: #16223a; }
+        button.solve-btn:active:not(:disabled) { transform: scale(0.99); }
+        button.solve-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .status {
+          margin-top: 14px;
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 13px;
+          color: var(--ink-soft);
+          display: none;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .status.visible { display: flex; }
+
+        .status.error { color: var(--accent-error); }
+
+        .spinner {
+          width: 12px;
+          height: 12px;
+          border: 2px solid var(--grid-line);
+          border-top-color: var(--accent-solved);
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .result {
+          display: none;
+          margin-top: 40px;
+        }
+
+        .result.visible { display: block; }
+
+        .result-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .result-title {
+          font-family: "Space Grotesk", sans-serif;
+          font-weight: 600;
+          font-size: 18px;
+        }
+
+        .legend {
+          display: flex;
+          gap: 16px;
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 12px;
+          color: var(--ink-soft);
+        }
+
+        .legend span {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .legend-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .legend-dot.given { background: var(--accent-given); }
+        .legend-dot.solved { background: var(--accent-solved); }
+
+        .grid-frame {
+          background: var(--surface);
+          border: 1px solid var(--grid-line);
+          border-radius: var(--radius);
+          padding: 20px;
+        }
+
+        .sudoku-grid {
+          display: grid;
+          grid-template-columns: repeat(9, 1fr);
+          grid-template-rows: repeat(9, 1fr);
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          background-color: var(--grid-line-strong);
+          background-image:
+            linear-gradient(rgba(199, 206, 219, 0.35) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(199, 206, 219, 0.35) 1px, transparent 1px);
+          background-size: calc(100% / 9) calc(100% / 9);
+          gap: 1px;
+          border: 2.5px solid var(--grid-line-strong);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .cell {
+          background: var(--surface);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: "IBM Plex Mono", monospace;
+          font-weight: 600;
+          font-size: clamp(14px, 3.4vw, 22px);
+          color: var(--accent-given);
+          opacity: 0;
+          transform: scale(0.85);
+        }
+
+        .cell.filled {
+          animation: pencil-in 0.35s ease forwards;
+        }
+
+        .cell.solved-cell { color: var(--accent-solved); }
+
+        @keyframes pencil-in {
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        /* thick borders every 3rd row/col to mark 3x3 boxes */
+        .cell:nth-child(3n) { border-right: 2px solid var(--grid-line-strong); }
+        .cell:nth-child(9n) { border-right: none; }
+        .cell:nth-child(n) { border-bottom: none; }
+        .row-thick-bottom { border-bottom: 2px solid var(--grid-line-strong); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .cell { animation: none !important; opacity: 1; transform: none; }
+          .spinner { animation-duration: 1.4s; }
+        }
+
+        footer {
+          margin-top: 48px;
+          font-family: "IBM Plex Mono", monospace;
+          font-size: 12px;
+          color: var(--ink-soft);
+          text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+    <div class="eyebrow">OCR &nbsp;→&nbsp; BACKTRACK &nbsp;→&nbsp; SOLVE</div>
+    <h1>Sudoku Solver</h1>
+    <p class="subtitle">
+        Upload a photo or screenshot of a Sudoku puzzle. PaddleOCR reads the grid,
+        a backtracking solver fills it in, and the result appears below.
+    </p>
+
+    <div class="card">
+        <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.webp,.bmp"/>
+            <div class="dropzone-icon">[ + ]</div>
+            <div class="dropzone-label">Drop an image, or click to browse</div>
+            <div class="dropzone-hint">PNG, JPG, WEBP, or BMP — up to 8 MB</div>
+        </div>
+
+        <div class="preview-wrap" id="previewWrap">
+            <img class="preview-thumb" id="previewThumb" alt="Selected puzzle preview"/>
+            <div class="preview-meta">
+                <div class="preview-name" id="previewName"></div>
+                <button class="preview-remove" id="previewRemove" type="button">Remove</button>
+            </div>
+        </div>
+
+        <button class="solve-btn" id="solveBtn" disabled>Solve puzzle</button>
+
+        <div class="status" id="status">
+            <span class="spinner" id="spinner"></span>
+            <span id="statusText"></span>
+        </div>
+    </div>
+
+    <div class="result" id="result">
+        <div class="result-header">
+            <div class="result-title">Solved grid</div>
+            <div class="legend">
+                <span><span class="legend-dot given"></span>given</span>
+                <span><span class="legend-dot solved"></span>solved</span>
+            </div>
+        </div>
+        <div class="grid-frame">
+            <div class="sudoku-grid" id="sudokuGrid"></div>
+        </div>
+    </div>
+
+    <footer>81 cells &middot; recognized with PaddleOCR &middot; solved by backtracking</footer>
+</div>
+
+<script>
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const previewWrap = document.getElementById("previewWrap");
+    const previewThumb = document.getElementById("previewThumb");
+    const previewName = document.getElementById("previewName");
+    const previewRemove = document.getElementById("previewRemove");
+    const solveBtn = document.getElementById("solveBtn");
+    const status = document.getElementById("status");
+    const spinner = document.getElementById("spinner");
+    const statusText = document.getElementById("statusText");
+    const result = document.getElementById("result");
+    const sudokuGrid = document.getElementById("sudokuGrid");
+
+    let selectedFile = null;
+
+    function setFile(file) {
+      if (!file) return;
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      previewThumb.src = url;
+      previewName.textContent = file.name;
+      previewWrap.classList.add("visible");
+      solveBtn.disabled = false;
+      hideStatus();
+      result.classList.remove("visible");
+      sudokuGrid.innerHTML = "";
+    }
+
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+      })
+    );
+
+    ["dragleave", "drop"].forEach((evt) =>
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+      })
+    );
+
+    dropzone.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    previewRemove.addEventListener("click", () => {
+      selectedFile = null;
+      fileInput.value = "";
+      previewWrap.classList.remove("visible");
+      solveBtn.disabled = true;
+      result.classList.remove("visible");
+      sudokuGrid.innerHTML = "";
+      hideStatus();
+    });
+
+    function showStatus(text, isError = false) {
+      status.classList.add("visible");
+      status.classList.toggle("error", isError);
+      spinner.style.display = isError ? "none" : "block";
+      statusText.textContent = text;
+    }
+
+    function hideStatus() {
+      status.classList.remove("visible");
+    }
+
+    function renderGrid(originalGrid, solvedGrid) {
+      sudokuGrid.innerHTML = "";
+      const display = solvedGrid || originalGrid;
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          if (r === 2 || r === 5) cell.classList.add("row-thick-bottom");
+
+          const wasGiven = originalGrid[r][c] !== 0;
+          const val = display[r][c];
+
+          if (val !== 0) {
+            cell.textContent = val;
+            cell.classList.add(wasGiven ? "given-cell" : "solved-cell");
+          }
+
+          const delay = (r * 9 + c) * 12;
+          cell.style.animationDelay = `${delay}ms`;
+
+          sudokuGrid.appendChild(cell);
+
+          // trigger animation on next frame so the delay applies
+          requestAnimationFrame(() => cell.classList.add("filled"));
+        }
+      }
+
+      result.classList.add("visible");
+    }
+
+    solveBtn.addEventListener("click", async () => {
+      if (!selectedFile) return;
+
+      solveBtn.disabled = true;
+      result.classList.remove("visible");
+      showStatus("Reading the grid…");
+
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+
+      try {
+        const res = await fetch("/api/solve", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showStatus(data.error || "Something went wrong.", true);
+          if (data.extracted_grid) {
+            renderGrid(data.extracted_grid, null);
+          }
+          solveBtn.disabled = false;
+          return;
+        }
+
+        hideStatus();
+        renderGrid(data.extracted_grid, data.solved_grid);
+        solveBtn.disabled = false;
+      } catch (err) {
+        showStatus("Could not reach the server. Is it running?", true);
+        solveBtn.disabled = false;
+      }
+    });
+</script>
+
+</body>
+</html>
