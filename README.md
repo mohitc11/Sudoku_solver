@@ -19,7 +19,7 @@ sudoku_app/
 ## Setup
 
 ```bash
-cd sudoku_app
+cd Sudoku_solver
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS/Linux
