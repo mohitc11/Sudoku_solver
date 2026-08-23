@@ -14,11 +14,16 @@ Install deps first:
 
 import json
 import time
-
 import cv2
 import numpy as np
-from paddleocr import TextRecognition
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message="No ccache found.*",
+    category=UserWarning,
+)
 
+from paddleocr import TextRecognition
 from sudoku_solver import _print_grid
 
 # Each Sudoku cell is already cropped down to a single isolated digit, so we
